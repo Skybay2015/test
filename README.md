@@ -1,133 +1,133 @@
-# README — Архитектура, выбор библиотек, компромиссы и масштабирование для продакшена
+# README — Architecture, library choices, compromises and scaling for production
 
-## Краткая картина проекта
+## Project Overview
 
-Проект — Expo (managed) React Native приложение:
+The project is an Expo (managed) React Native application:
 
 - `expo` v54, `react` 19.1, `react-native` 0.81.5.
-- Структура исходников: `src/components`, `src/screens`, `src/navigation`, `src/services`, `src/stores`, `src/utils`, `src/types`.
-- Состояние: `zustand` (легкий сторадж).
+- Source structure: `src/components`, `src/screens`, `src/navigation`, `src/services`, `src/stores`, `src/utils`, `src/types`.
+- State management: `zustand` (lightweight storage).
 - HTTP: `axios`.
-- Хранилища/безопасность: `expo-secure-store`, также используется `expo-crypto`, `expo-random`.
-- Медиа: `expo-av`.
-- Навигация: `@react-navigation/native` + `native-stack`.
+- Storage/security: `expo-secure-store`, also uses `expo-crypto`, `expo-random`.
+- Media: `expo-av`.
+- Navigation: `@react-navigation/native` + `native-stack`.
 - Async storage: `@react-native-async-storage/async-storage`.
 
-Проект организован в привычной для мобильных приложений layered-архитектуре: UI (components/screens) → navigation → services (связь с API) → store (zustand) → utils.
+The project is organized in a familiar layered architecture for mobile applications: UI (components/screens) → navigation → services (API connection) → store (zustand) → utils.
 
 ---
 
-## Архитектурные решения и мотивы
+## Architectural decisions and motivations
 
 1. **Expo (managed workflow)**
 
-   - Плюсы: быстрая разработка, удобный набор модулей (secure store, crypto, av и т.д.), лёгкий запуск `expo start`.
-   - Минусы: некоторые нативные модули и custom native code требуют перехода в bare / prebuild, OTA требует `expo-updates`/EAS.
+   - Pros: fast development, convenient set of modules (secure store, crypto, av, etc.), easy `expo start` launch.
+   - Cons: some native modules and custom native code require transition to bare / prebuild, OTA requires `expo-updates`/EAS.
 
-2. **Слой `services` (API abstraction)**
+2. **`services` layer (API abstraction)**
 
-   - Все сетевые вызовы инкапсулированы в `src/services` (`api.ts`, `AuthService`, `AlertsService` и т.д.). Это даёт централизованную точку для настройки axios (baseURL, interceptors, retry и пр.), мокирования в тестах и замены реализации (например, переход на GraphQL).
+   - All network calls are encapsulated in `src/services` (`api.ts`, `AuthService`, `AlertsService`, etc.). This provides a centralized point for axios configuration (baseURL, interceptors, retry, etc.), mocking in tests, and implementation replacement (e.g., transition to GraphQL).
 
-3. **Zustand для state management**
+3. **Zustand for state management**
 
-   - Плюсы: простота, низкая шаблонность, малый объём кода для локального и глобального состояния.
-   - Ограничения: при увеличении приложения и сложных связях между модулями может потребоваться более формализованное решение (Redux Toolkit / RTK Query / MobX).
+   - Pros: simplicity, low boilerplate, minimal code for local and global state.
+   - Limitations: as the application grows and complex relationships between modules emerge, a more formalized solution may be needed (Redux Toolkit / RTK Query / MobX).
 
-4. **Компоненты / screens**
+4. **Components / screens**
 
-   - Чёткое разделение UI-компонентов и экранов — облегчает тестирование и переиспользование.
+   - Clear separation of UI components and screens — facilitates testing and reusability.
 
-5. **Безопасность токенов**
-   - Токены хранятся в `expo-secure-store` — разумный выбор для мобильного хранилища секретов в managed Expo.
+5. **Token security**
+   - Tokens are stored in `expo-secure-store` — a reasonable choice for mobile secret storage in managed Expo.
 
 ---
 
-## Используемые библиотеки (основные)
+## Used libraries (main)
 
 - expo (managed)
 - react, react-native
-- @react-navigation/native, @react-navigation/native-stack — навигация
+- @react-navigation/native, @react-navigation/native-stack — navigation
 - axios — HTTP
 - zustand — state management
-- expo-secure-store — безопасное хранение токенов
-- expo-crypto, expo-random — криптофункции
-- expo-av — воспроизведение видео/аудио
-- @react-native-async-storage/async-storage — кэш/локальное хранилище (в проекте используется для кэша)
-- crypto-js — симметричное шифрование/хеши
+- expo-secure-store — secure token storage
+- expo-crypto, expo-random — crypto functions
+- expo-av — video/audio playback
+- @react-native-async-storage/async-storage — cache/local storage (used for caching in the project)
+- crypto-js — symmetric encryption/hashes
 
 ---
 
-## Главные компромиссы и когда их пересмотреть
+## Main compromises and when to reconsider them
 
 1. **Zustand vs Redux**
 
-   - Для маленького/среднего приложения `zustand` — быстрый и легковесный вариант. Если проект станет большим (много дериваций состояния, сложные async flows, need for time-travel debugging, сложные devtools) — стоит рассмотреть Redux Toolkit + RTK Query.
+   - For small/medium applications `zustand` is a fast and lightweight option. If the project becomes large (many state derivations, complex async flows, need for time-travel debugging, complex devtools) — consider Redux Toolkit + RTK Query.
 
 2. **Expo-managed vs Bare**
 
-   - Managed ускоряет разработку. Но если потребуется много нативной логики (например собственные SDK, детальные native-аналитики, сложный background processing) — переход в bare (или `expo prebuild`) неизбежен. Планируйте заранее: держите код loosely-coupled, чтобы упростить prebuild.
+   - Managed speeds up development. But if a lot of native logic is needed (e.g., custom SDKs, detailed native analytics, complex background processing) — transition to bare (or `expo prebuild`) is inevitable. Plan ahead: keep code loosely-coupled to simplify prebuild.
 
 3. **Axios**
 
-   - Axios удобен и familiar; для сложного кэширования/invalidations стоит посмотреть RTK Query (особенно если добавите Redux) либо внедрить слой HTTP-клиента с retry/backoff.
+   - Axios is convenient and familiar; for complex caching/invalidations consider RTK Query (especially if you add Redux) or implement an HTTP client layer with retry/backoff.
 
 4. **OTA (Over The Air updates)**
-   - В проекте нет явной зависимости `expo-updates`. Для OTA-обновлений рекомендую интегрировать `expo-updates` + рассмотреть EAS Updates. Помните: OTA покрывает JS/bundle и ассеты, но не работает для изменений нативного кода — для них нужен новый билд в App Store / Play Store.
+   - The project doesn't have an explicit `expo-updates` dependency. For OTA updates, I recommend integrating `expo-updates` + considering EAS Updates. Remember: OTA covers JS/bundle and assets, but doesn't work for native code changes — those require a new build in App Store / Play Store.
 
 ---
 
-## Рекомендации по подготовке к продакшену / масштабированию
+## Production readiness / scaling recommendations
 
-### 1) Рефакторинг / модульность
+### 1) Refactoring / modularity
 
-- Разбить `src` на feature-модули (например `features/alerts`, `features/auth`), где внутри каждого модуля есть `components`, `screens`, `services`, `store`.
-- Ввести контракт для API-слоя (types / interfaces) и типизацию ответов (TypeScript interfaces).
+- Break down `src` into feature modules (e.g., `features/alerts`, `features/auth`), where each module contains `components`, `screens`, `services`, `store`.
+- Introduce API layer contracts (types / interfaces) and response typing (TypeScript interfaces).
 
-### 2) Надёжность сети и кэширование
+### 2) Network reliability and caching
 
-- Добавить глобальные axios-interceptors для обработки ошибок и refresh token flow.
-- Использовать кэш (возможно с `react-query` или RTK Query) для данных, часто используемых на экране (ловить stale-while-revalidate).
-- Валидация схем ответов (zod / io-ts) для раннего обнаружения изменений API.
+- Add global axios-interceptors for error handling and refresh token flow.
+- Use caching (possibly with `react-query` or RTK Query) for data frequently used on screen (catch stale-while-revalidate).
+- Response schema validation (zod / io-ts) for early detection of API changes.
 
-### 3) Мониторинг и аналитика
+### 3) Monitoring and analytics
 
-- Подключить Sentry (crash reporting) и/или Firebase Crashlytics.
-- Логи (например LogRocket Mobile, Amplitude) для аналитики поведения пользователей.
+- Connect Sentry (crash reporting) and/or Firebase Crashlytics.
+- Logs (e.g., LogRocket Mobile, Amplitude) for user behavior analytics.
 
-### 4) Безопасность
+### 4) Security
 
-- Never store secrets directly in repo. Используйте environment variables + EAS secrets / CI secrets.
-- Защищать токены: `expo-secure-store`.
-- Проводить аудит зависимости (npm audit / Snyk).
+- Never store secrets directly in repo. Use environment variables + EAS secrets / CI secrets.
+- Protect tokens: `expo-secure-store`.
+- Conduct dependency audits (npm audit / Snyk).
 
-### 5) Тесты
+### 5) Tests
 
-- Unit: Jest + ts-jest для services и utils.
+- Unit: Jest + ts-jest for services and utils.
 - Integration/Component: React Native Testing Library.
-- E2E: Detox или Appium (особенно если используете bare workflow).
+- E2E: Detox or Appium (especially if using bare workflow).
 
 ---
 
-## OTA (Over-the-air) — как настроить
+## OTA (Over-the-air) — how to set up
 
-1. Установить и настроить `expo-updates` (или EAS Updates):
+1. Install and configure `expo-updates` (or EAS Updates):
    - `expo install expo-updates`
-   - Настроить `app.json` / `app.config.js` (ключи `updates`, `runtimeVersion`).
-   - В `expo-updates` указывать `runtimeVersion` для контроля какой бандл совместим с каким нативным билдом.
+   - Configure `app.json` / `app.config.js` (`updates`, `runtimeVersion` keys).
+   - In `expo-updates` specify `runtimeVersion` to control which bundle is compatible with which native build.
 2. EAS (Expo Application Services):
-   - Перейти на EAS Build / EAS Update для production workflows.
-   - EAS даёт управление каналами/релизами (release channels / update channels) и возможность staged rollouts.
-3. Ограничения:
-   - Любые изменения нативных модулей требуют новый нативный билд — OTA не поможет.
-   - OTA не должен использоваться для sensitive data migrations, где требуется изменение схемы native DB.
+   - Switch to EAS Build / EAS Update for production workflows.
+   - EAS provides release channel management and staged rollout capabilities.
+3. Limitations:
+   - Any native module changes require a new native build — OTA won't help.
+   - OTA should not be used for sensitive data migrations requiring native DB schema changes.
 
 ---
 
-## CI/CD — примерной поток и рекомендации
+## CI/CD — example flow and recommendations
 
-Цель: автоматический линт/типчек → тесты → билд → deploy (EAS/Fastlane) → release channel / store.
+Goal: automatic lint/typecheck → tests → build → deploy (EAS/Fastlane) → release channel / store.
 
-Пример pipeline (GitHub Actions):
+Example pipeline (GitHub Actions):
 
 ```yaml
 name: CI
@@ -164,29 +164,29 @@ jobs:
 
 ---
 
-## Конкретные шаги для этого репозитория (рекомендую реализовать)
+## Specific steps for this repository (recommended to implement)
 
-1. Добавить `expo-updates` и настроить `app.json` (`runtimeVersion`) → для OTA.
-2. Добавить `eas.json` и подключить EAS (build/profiles).
-3. Настроить GitHub Actions (CI) с линтингом, тестами, и шагами `eas build`/`eas update`.
-4. Добавить Sentry/Crashlytics интеграцию и автоматическую отправку sourcemaps/dSYMs.
-5. Вынести `baseURL` и секреты в env через EAS secrets (не хранить в коде).
-6. Добавить unit-тесты (Jest) и базовый E2E (Detox для native/AAB workflow) — интегрировать в CI.
-7. По мере роста — рассмотреть миграцию некоторого глобального стейта на Redux Toolkit + RTK Query для мощного кэширования и автоматического рефетчинга.
+1. Add `expo-updates` and configure `app.json` (`runtimeVersion`) → for OTA.
+2. Add `eas.json` and connect EAS (build/profiles).
+3. Set up GitHub Actions (CI) with linting, tests, and `eas build`/`eas update` steps.
+4. Add Sentry/Crashlytics integration and automatic sourcemaps/dSYMs upload.
+5. Move `baseURL` and secrets to env via EAS secrets (don't store in code).
+6. Add unit tests (Jest) and basic E2E (Detox for native/AAB workflow) — integrate into CI.
+7. As it grows — consider migrating some global state to Redux Toolkit + RTK Query for powerful caching and automatic refetching.
 
 ---
 
-## Краткое резюме — плюсы текущего подхода
+## Brief summary — pros of current approach
 
-- Быстрая разработка благодаря Expo.
-- Чистая, понятная структура: services / stores / components / screens.
-- Легковесный state management (zustand) — быстро стартовать.
-- Готовая база для добавления OTA (expo-updates) и CI (EAS + GitHub Actions).
+- Fast development thanks to Expo.
+- Clean, understandable structure: services / stores / components / screens.
+- Lightweight state management (zustand) — quick to start.
+- Ready foundation for adding OTA (expo-updates) and CI (EAS + GitHub Actions).
 
-## Риски / что нужно доделать перед продом
+## Risks / what needs to be done before production
 
-- Настроить OTA (expo-updates/EAS).
-- Полноценный CI с тестами + сборками.
-- Мониторинг и crash reporting.
-- Управление секретами + code signing.
-- План миграции, если потребуется нативный код — спланируйте prebuild/transition.
+- Set up OTA (expo-updates/EAS).
+- Full CI with tests + builds.
+- Monitoring and crash reporting.
+- Secret management + code signing.
+- Migration plan if native code is needed — plan prebuild/transition.
